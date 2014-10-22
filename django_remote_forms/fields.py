@@ -2,6 +2,7 @@ import datetime
 
 from django.conf import settings
 from django.utils.datastructures import SortedDict
+from django import forms
 
 from django_remote_forms import logger, widgets
 
@@ -25,6 +26,7 @@ class RemoteField(object):
 
     def as_dict(self):
         field_dict = SortedDict()
+        field_dict['id'] = self.field_name
         field_dict['title'] = self.field.__class__.__name__
         field_dict['required'] = self.field.required
         field_dict['label'] = self.field.label
@@ -32,21 +34,22 @@ class RemoteField(object):
         field_dict['help_text'] = self.field.help_text
 
         field_dict['error_messages'] = self.field.error_messages
-
+        '''
         # Instantiate the Remote Forms equivalent of the widget if possible
         # in order to retrieve the widget contents as a dictionary.
         remote_widget_class_name = 'Remote%s' % self.field.widget.__class__.__name__
         try:
             remote_widget_class = getattr(widgets, remote_widget_class_name)
             remote_widget = remote_widget_class(self.field.widget, field_name=self.field_name)
-        except Exception, e:
+        except Exception as e:
             logger.warning('Error serializing %s: %s', remote_widget_class_name, str(e))
             widget_dict = {}
         else:
             widget_dict = remote_widget.as_dict()
-
-        field_dict['widget'] = widget_dict
-
+        
+        field_dict['widget'] = widget_dict'''
+        field_dict['widget'] = self.field.widget.__class__.__name__
+        
         return field_dict
 
 
@@ -237,7 +240,11 @@ class RemoteMultiValueField(RemoteField):
     def as_dict(self):
         field_dict = super(RemoteMultiValueField, self).as_dict()
 
-        field_dict['fields'] = self.field.fields
+        field_dict['fields'] = []
+        for i, f in enumerate(self.field.fields):
+            subFieldDict = getRemoteField(f, self.form_initial_data, self.field_name+'_%i'%i).as_dict()
+            if hasattr(f, 'as_dict'):subFieldDict.update(f.as_dict())
+            field_dict['fields'].append(subFieldDict)
 
         return field_dict
 
@@ -275,3 +282,43 @@ class RemoteIPAddressField(RemoteCharField):
 class RemoteSlugField(RemoteCharField):
     def as_dict(self):
         return super(RemoteSlugField, self).as_dict()
+
+def getRemoteField(field, form_initial_field_data, name):
+    for i in field.__class__.mro():
+        if i in REMOTE_FIELD_MAPPING:
+            #print(field.__class__, i, REMOTE_FIELD_MAPPING[i])
+            return REMOTE_FIELD_MAPPING[i](field, form_initial_field_data, field_name=name)
+
+REMOTE_FIELD_MAPPING = {
+    forms.Field                     :RemoteField,
+    forms.CharField                 :RemoteCharField,
+    forms.IntegerField              :RemoteIntegerField,
+    forms.FloatField                :RemoteFloatField,
+    forms.DecimalField              :RemoteDecimalField,
+    forms.TimeField                 :RemoteTimeField,
+    forms.DateField                 :RemoteDateField,
+    forms.DateTimeField             :RemoteDateTimeField,
+    forms.RegexField                :RemoteRegexField,
+    forms.EmailField                :RemoteEmailField,
+    forms.FileField                 :RemoteFileField,
+    forms.ImageField                :RemoteImageField,
+    forms.URLField                  :RemoteURLField,
+    forms.BooleanField              :RemoteBooleanField,
+    forms.NullBooleanField          :RemoteNullBooleanField,
+    forms.ChoiceField               :RemoteChoiceField,
+    forms.ModelChoiceField          :RemoteModelChoiceField,
+    forms.TypedChoiceField          :RemoteTypedChoiceField,
+    forms.MultipleChoiceField       :RemoteMultipleChoiceField,
+    forms.ModelMultipleChoiceField  :RemoteModelMultipleChoiceField,
+    forms.TypedMultipleChoiceField  :RemoteTypedMultipleChoiceField,
+    forms.ComboField                :RemoteComboField,
+    forms.MultiValueField           :RemoteMultiValueField,
+    forms.FilePathField             :RemoteFilePathField,
+    forms.SplitDateTimeField        :RemoteSplitDateTimeField,
+    forms.IPAddressField            :RemoteIPAddressField,
+    forms.SlugField                 :RemoteSlugField,
+}
+
+
+
+
