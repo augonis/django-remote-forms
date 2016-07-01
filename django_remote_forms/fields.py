@@ -315,7 +315,7 @@ REMOTE_FIELD_MAPPING = {
     forms.MultiValueField           :RemoteMultiValueField,
     forms.FilePathField             :RemoteFilePathField,
     forms.SplitDateTimeField        :RemoteSplitDateTimeField,
-    forms.IPAddressField            :RemoteIPAddressField,
+    #forms.IPAddressField            :RemoteIPAddressField,
     forms.SlugField                 :RemoteSlugField,
 }
 
